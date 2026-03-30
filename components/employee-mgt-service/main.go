@@ -71,6 +71,7 @@ func (s *EmployeeStore) GetByID(id int) (Employee, bool) {
 
 var store = NewEmployeeStore()
 
+// main function to start the server
 func main() {
 	mux := http.NewServeMux()
 
