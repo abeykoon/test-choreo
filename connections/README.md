@@ -7,17 +7,42 @@ Two minimal Go HTTP services that demonstrate a service-to-service call. The
 
 ```
 client ──► ordering-service (:9090)  ──HTTP──►  payment-service (:9091)
-            POST /ordering/orders               POST /payment/approved
+   [Public]    POST /ordering/orders   [Project]   POST /payment/approved
 ```
+
+---
+
+## Endpoint visibility
+
+Each service ships a `.choreo/component.yaml` (schema version `1.2`) that
+declares the endpoint exposed by the service and its **network visibility**.
+
+| Service            | Endpoint name | Base path   | Port  | Visibility    |
+| ------------------ | ------------- | ----------- | ----- | ------------- |
+| ordering-service   | `ordering-api`| `/ordering` | 9090  | **`Public`**  |
+| payment-service    | `payment-api` | `/payment`  | 9091  | **`Project`** |
+
+- **`Public`** — `ordering-service` is reachable from outside the Choreo
+  project (e.g. by external clients calling `POST /ordering/orders`).
+- **`Project`** — `payment-service` is only reachable from other components
+  inside the *same* Choreo project. External callers cannot hit it directly;
+  only `ordering-service` (in-project) can invoke `/payment/approved`.
+
+This visibility split is what enforces the design: clients talk to the order
+API, payment stays internal.
+
+Accepted values for `networkVisibilities` in component.yaml: `Project`,
+`Organization`, `Public` (default).
 
 ---
 
 ## Services
 
-### 1. payment-service (port `9091`, context `/payment`)
+### 1. payment-service (port `9091`, context `/payment`, visibility **`Project`**)
 
 A simple payment processor. Accepts a payment request and replies with an
-approval or decline status.
+approval or decline status. Exposed only inside the Choreo project — not
+reachable from outside.
 
 | Method | Path                  | Description                                       |
 | ------ | --------------------- | ------------------------------------------------- |
@@ -52,11 +77,12 @@ approval or decline status.
 
 ---
 
-### 2. ordering-service (port `9090`, context `/ordering`)
+### 2. ordering-service (port `9090`, context `/ordering`, visibility **`Public`**)
 
 Exposes an endpoint to place an order. On each placed order it generates an
 order ID + correlation ID, calls the payment service's `/payment/approved`
-endpoint, and returns the combined result.
+endpoint, and returns the combined result. Publicly reachable — this is the
+service external clients hit.
 
 | Method | Path                  | Description                                  |
 | ------ | --------------------- | -------------------------------------------- |
@@ -182,9 +208,13 @@ curl -X POST http://localhost:9091/payment/declined \
 connections/
 ├── README.md
 ├── ordering-service/
+│   ├── .choreo/
+│   │   └── component.yaml   # endpoint: /ordering on :9090, visibility: Public
 │   ├── go.mod
-│   └── main.go        # exposes /ordering/orders; calls payment-service
+│   └── main.go              # exposes /ordering/orders; calls payment-service
 └── payment-service/
+    ├── .choreo/
+    │   └── component.yaml   # endpoint: /payment on :9091, visibility: Project
     ├── go.mod
-    └── main.go        # exposes /payment/approved and /payment/declined
+    └── main.go              # exposes /payment/approved and /payment/declined
 ```
