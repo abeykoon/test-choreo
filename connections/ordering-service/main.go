@@ -56,15 +56,15 @@ var (
 
 func main() {
 	if consumerKey == "" || consumerSecret == "" || serviceURL == "" || tokenURL == "" {
-		log.Fatal("missing required env vars: CHOREO_PAYMENT_SVC_CONNECTION_{CONSUMERKEY,CONSUMERSECRET,SERVICEURL,TOKENURL}")
+		log.Println("WARNING: missing required env vars: CHOREO_PAYMENT_SVC_CONNECTION_{CONSUMERKEY,CONSUMERSECRET,SERVICEURL,TOKENURL}; payment service invocations will fail until these are set")
+	} else {
+		cfg := clientcredentials.Config{
+			ClientID:     consumerKey,
+			ClientSecret: consumerSecret,
+			TokenURL:     tokenURL,
+		}
+		paymentClient = cfg.Client(context.Background())
 	}
-
-	cfg := clientcredentials.Config{
-		ClientID:     consumerKey,
-		ClientSecret: consumerSecret,
-		TokenURL:     tokenURL,
-	}
-	paymentClient = cfg.Client(context.Background())
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ordering/orders", ordersHandler)
@@ -116,6 +116,9 @@ func ordersHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func callPayment(ctx context.Context, action string, order Order, correlationID string) (PaymentResponse, error) {
+	if paymentClient == nil || serviceURL == "" {
+		return PaymentResponse{}, fmt.Errorf("payment service connection not configured")
+	}
 	url := fmt.Sprintf("%s/%s", serviceURL, action)
 
 	body, _ := json.Marshal(map[string]interface{}{
