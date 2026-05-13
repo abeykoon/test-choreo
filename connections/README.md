@@ -125,30 +125,69 @@ service external clients hit.
 
 ## How ordering-service calls payment-service
 
-The outbound HTTP call is built in `ordering-service/main.go` (`callPayment`).
-It illustrates two ways context is attached to a downstream call:
+The call does **not** go directly to payment-service. It is routed through the
+Choreo API Manager layer, which enforces **OAuth2 (client credentials)** plus
+a `Choreo-API-Key` header. Connection details are declared in
+`ordering-service/.choreo/component.yaml` under `dependencies.connectionReferences`
+(name: `payment-svc-connection`), and Choreo injects the credentials as env
+vars at runtime.
 
-1. **Go `context.Context` with timeout** — `http.NewRequestWithContext` is used
-   with a 5-second timeout derived from the inbound request context. If the
-   client disconnects or payment is slow, the call is cancelled.
+```
+ordering-service ──► API Manager (OAuth2 + API key) ──► payment-service
+```
+
+### Injected environment variables
+
+| Env var                                          | Purpose                                          |
+| ------------------------------------------------ | ------------------------------------------------ |
+| `CHOREO_PAYMENT_SVC_CONNECTION_CONSUMERKEY`      | OAuth2 client ID                                 |
+| `CHOREO_PAYMENT_SVC_CONNECTION_CONSUMERSECRET`   | OAuth2 client secret                             |
+| `CHOREO_PAYMENT_SVC_CONNECTION_TOKENURL`         | OAuth2 token endpoint (client credentials grant) |
+| `CHOREO_PAYMENT_SVC_CONNECTION_SERVICEURL`       | Base URL of the payment API (via API Manager)    |
+| `CHOREO_PAYMENT_SVC_CONNECTION_APIKEY`           | Value for the `Choreo-API-Key` header            |
+
+These are populated automatically once the connection is created in Choreo —
+nothing has to be hard-coded.
+
+### What the ordering-service does on each call
+
+1. **OAuth2 client credentials** — a single `*http.Client` is built once at
+   startup from `golang.org/x/oauth2/clientcredentials`. It transparently
+   fetches and caches an access token from `TOKENURL`, then attaches
+   `Authorization: Bearer <token>` to every outbound request.
 
    ```go
-   ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+   cfg := clientcredentials.Config{
+       ClientID:     consumerKey,
+       ClientSecret: consumerSecret,
+       TokenURL:     tokenURL,
+   }
+   paymentClient = cfg.Client(context.Background())
+   ```
+
+2. **Go `context.Context` with timeout** — the outbound request is built with
+   `http.NewRequestWithContext` and a 10-second timeout derived from the
+   inbound request context, so client disconnects / slow upstreams cancel
+   cleanly.
+
+   ```go
+   ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
    defer cancel()
    req, _ := http.NewRequestWithContext(ctx, http.MethodPost, url, body)
    ```
 
-2. **HTTP headers carrying request metadata** — a correlation ID, source
-   service name, and order ID are sent so the callee can trace the call back
-   to its origin.
+3. **HTTP headers carrying request metadata** — correlation/tracing headers
+   plus the Choreo API key.
 
    ```go
    req.Header.Set("X-Correlation-ID", correlationID)
    req.Header.Set("X-Source-Service", "ordering-service")
    req.Header.Set("X-Order-ID", order.ID)
+   req.Header.Set("Choreo-API-Key", choreoAPIKey)
    ```
 
-The target URL is `${PAYMENT_SERVICE_URL}/payment/approved`.
+The target URL is `${CHOREO_PAYMENT_SVC_CONNECTION_SERVICEURL}/approved`
+(the connection's service URL is already the `/payment` base path).
 
 ---
 
@@ -161,16 +200,19 @@ Open two terminals and run each service:
 cd payment-service
 go run .
 
-# terminal 2 — ordering service
+# terminal 2 — ordering service (requires the connection env vars)
 cd ordering-service
+export CHOREO_PAYMENT_SVC_CONNECTION_CONSUMERKEY=...
+export CHOREO_PAYMENT_SVC_CONNECTION_CONSUMERSECRET=...
+export CHOREO_PAYMENT_SVC_CONNECTION_TOKENURL=https://<gateway>/oauth2/token
+export CHOREO_PAYMENT_SVC_CONNECTION_SERVICEURL=https://<gateway>/payment
+export CHOREO_PAYMENT_SVC_CONNECTION_APIKEY=...
 go run .
 ```
 
-Optional — point the ordering service at a non-local payment service:
-
-```bash
-PAYMENT_SERVICE_URL=http://payment.internal:9091 go run .
-```
+In Choreo these env vars are injected automatically from the
+`payment-svc-connection` connection — you do not set them by hand.
+The ordering-service fails fast on startup if the required ones are missing.
 
 ---
 

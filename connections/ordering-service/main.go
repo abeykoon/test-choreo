@@ -11,6 +11,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"golang.org/x/oauth2/clientcredentials"
 )
 
 type Order struct {
@@ -40,19 +42,38 @@ type ErrorResponse struct {
 }
 
 var (
-	paymentBaseURL = getEnv("PAYMENT_SERVICE_URL", "http://localhost:9091")
-	mu             sync.Mutex
-	orderSeq       = 0
+	consumerKey    = os.Getenv("CHOREO_PAYMENT_SVC_CONNECTION_CONSUMERKEY")
+	consumerSecret = os.Getenv("CHOREO_PAYMENT_SVC_CONNECTION_CONSUMERSECRET")
+	serviceURL     = os.Getenv("CHOREO_PAYMENT_SVC_CONNECTION_SERVICEURL")
+	tokenURL       = os.Getenv("CHOREO_PAYMENT_SVC_CONNECTION_TOKENURL")
+	choreoAPIKey   = os.Getenv("CHOREO_PAYMENT_SVC_CONNECTION_APIKEY")
+
+	paymentClient *http.Client
+
+	mu       sync.Mutex
+	orderSeq = 0
 )
 
 func main() {
+	if consumerKey == "" || consumerSecret == "" || serviceURL == "" || tokenURL == "" {
+		log.Fatal("missing required env vars: CHOREO_PAYMENT_SVC_CONNECTION_{CONSUMERKEY,CONSUMERSECRET,SERVICEURL,TOKENURL}")
+	}
+
+	cfg := clientcredentials.Config{
+		ClientID:     consumerKey,
+		ClientSecret: consumerSecret,
+		TokenURL:     tokenURL,
+	}
+	paymentClient = cfg.Client(context.Background())
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ordering/orders", ordersHandler)
 
 	log.Println("Ordering Service starting on port 9090...")
 	log.Println("Context path: /ordering")
 	log.Println("Endpoints: POST /ordering/orders")
-	log.Printf("Payment service URL: %s", paymentBaseURL)
+	log.Printf("Payment service URL: %s", serviceURL)
+	log.Printf("OAuth2 token URL: %s", tokenURL)
 	log.Fatal(http.ListenAndServe(":9090", mux))
 }
 
@@ -77,7 +98,7 @@ func ordersHandler(w http.ResponseWriter, r *http.Request) {
 	order.ID = nextOrderID()
 	correlationID := fmt.Sprintf("corr-%s-%d", order.ID, time.Now().UnixNano())
 
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
 	payment, err := callPayment(ctx, "approved", order, correlationID)
@@ -95,7 +116,7 @@ func ordersHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func callPayment(ctx context.Context, action string, order Order, correlationID string) (PaymentResponse, error) {
-	url := fmt.Sprintf("%s/payment/%s", paymentBaseURL, action)
+	url := fmt.Sprintf("%s/%s", serviceURL, action)
 
 	body, _ := json.Marshal(map[string]interface{}{
 		"orderId": order.ID,
@@ -110,8 +131,11 @@ func callPayment(ctx context.Context, action string, order Order, correlationID 
 	req.Header.Set("X-Correlation-ID", correlationID)
 	req.Header.Set("X-Source-Service", "ordering-service")
 	req.Header.Set("X-Order-ID", order.ID)
+	if choreoAPIKey != "" {
+		req.Header.Set("Choreo-API-Key", choreoAPIKey)
+	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := paymentClient.Do(req)
 	if err != nil {
 		return PaymentResponse{}, err
 	}
@@ -134,13 +158,6 @@ func nextOrderID() string {
 	defer mu.Unlock()
 	orderSeq++
 	return fmt.Sprintf("ord-%d", orderSeq)
-}
-
-func getEnv(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
 }
 
 func writeError(w http.ResponseWriter, code int, message string) {

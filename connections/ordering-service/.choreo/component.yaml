@@ -22,3 +22,7 @@ endpoints:
     # Accepted values: Project|Organization|Public(Default).
     networkVisibilities:
       - Public
+dependencies:
+    connectionReferences:
+    - name: payment-svc-connection
+      resourceRef: service:/connection-test/payment-service/v1/5832a/PUBLIC
