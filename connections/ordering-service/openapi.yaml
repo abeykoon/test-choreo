@@ -1,0 +1,218 @@
+openapi: 3.0.3
+info:
+  title: Ordering Service API
+  description: |
+    Public API for placing orders. On each placed order the service generates
+    an order ID and correlation ID, then calls the payment service through
+    the Choreo API Manager (OAuth2 client credentials + Choreo-API-Key) to
+    record the payment. The combined order + payment result is returned to
+    the caller.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:9090
+    description: Local development server
+
+tags:
+  - name: Orders
+    description: Order placement operations
+
+paths:
+  /ordering/orders:
+    post:
+      tags:
+        - Orders
+      summary: Place an order
+      description: |
+        Creates a new order and triggers a downstream payment call. The
+        response contains the created order (with status set from the payment
+        result) plus the raw payment response.
+      operationId: placeOrder
+      requestBody:
+        required: true
+        description: Order to place
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderInput'
+            examples:
+              newOrder:
+                summary: Order request
+                value:
+                  item: book
+                  quantity: 2
+                  amount: 29.99
+      responses:
+        '201':
+          description: Order placed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaceOrderResponse'
+              examples:
+                placed:
+                  summary: Order placed and payment approved
+                  value:
+                    order:
+                      id: ord-1
+                      item: book
+                      quantity: 2
+                      amount: 29.99
+                      status: APPROVED
+                    payment:
+                      orderId: ord-1
+                      status: APPROVED
+                      transactionId: txn-ord-1
+                      processedAt: '2026-05-13T12:00:00Z'
+                      correlationId: corr-ord-1-1715600000000000000
+        '400':
+          description: Invalid order payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                validationError:
+                  summary: Missing required fields
+                  value:
+                    message: item, quantity, and amount are required
+                    code: 400
+        '405':
+          description: HTTP method not allowed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                methodNotAllowed:
+                  summary: Method not allowed
+                  value:
+                    message: Method not allowed
+                    code: 405
+        '502':
+          description: Downstream payment service call failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                paymentFailed:
+                  summary: Payment call failed
+                  value:
+                    message: 'payment service call failed: status 401: Unauthorized'
+                    code: 502
+
+components:
+  schemas:
+    OrderInput:
+      type: object
+      description: Input payload for placing a new order. ID and status are server-assigned.
+      required:
+        - item
+        - quantity
+        - amount
+      properties:
+        item:
+          type: string
+          description: Name of the item being ordered.
+          example: book
+          minLength: 1
+        quantity:
+          type: integer
+          description: Number of units ordered.
+          minimum: 1
+          example: 2
+        amount:
+          type: number
+          format: double
+          description: Total amount to charge for the order.
+          minimum: 0.01
+          example: 29.99
+
+    Order:
+      type: object
+      description: A placed order, including its server-assigned ID and payment status.
+      required:
+        - id
+        - item
+        - quantity
+        - amount
+        - status
+      properties:
+        id:
+          type: string
+          description: Server-assigned order identifier.
+          example: ord-1
+          readOnly: true
+        item:
+          type: string
+          example: book
+        quantity:
+          type: integer
+          example: 2
+        amount:
+          type: number
+          format: double
+          example: 29.99
+        status:
+          type: string
+          description: Order status, derived from the downstream payment result.
+          enum:
+            - APPROVED
+            - DECLINED
+          example: APPROVED
+
+    PaymentResponse:
+      type: object
+      description: Raw response received from the downstream payment service.
+      required:
+        - orderId
+        - status
+        - transactionId
+        - processedAt
+      properties:
+        orderId:
+          type: string
+          example: ord-1
+        status:
+          type: string
+          enum:
+            - APPROVED
+            - DECLINED
+          example: APPROVED
+        transactionId:
+          type: string
+          example: txn-ord-1
+        processedAt:
+          type: string
+          format: date-time
+          example: '2026-05-13T12:00:00Z'
+        correlationId:
+          type: string
+          example: corr-ord-1-1715600000000000000
+
+    PlaceOrderResponse:
+      type: object
+      description: Combined response returned by the ordering service after a successful order placement.
+      required:
+        - order
+        - payment
+      properties:
+        order:
+          $ref: '#/components/schemas/Order'
+        payment:
+          $ref: '#/components/schemas/PaymentResponse'
+
+    ErrorResponse:
+      type: object
+      description: Standard error response format
+      required:
+        - message
+        - code
+      properties:
+        message:
+          type: string
+          example: item, quantity, and amount are required
+        code:
+          type: integer
+          example: 400

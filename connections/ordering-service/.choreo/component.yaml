@@ -22,6 +22,11 @@ endpoints:
     # Accepted values: Project|Organization|Public(Default).
     networkVisibilities:
       - Public
+    # +optional The path to the schema definition file.
+    # Defaults to wildcard route if not specified.
+    # This is only applicable to REST endpoint types.
+    # The path should be relative to the docker context.
+    schemaFilePath: openapi.yaml
 dependencies:
     connectionReferences:
     - name: payment-svc-connection

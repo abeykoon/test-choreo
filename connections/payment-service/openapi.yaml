@@ -1,0 +1,233 @@
+openapi: 3.0.3
+info:
+  title: Payment Service API
+  description: |
+    Simple payment processing API. Accepts a payment request for an order
+    and replies with an approval or decline result. Used internally inside
+    a Choreo project (network visibility: Project).
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:9091
+    description: Local development server
+
+tags:
+  - name: Payments
+    description: Payment processing operations
+
+paths:
+  /payment/approved:
+    post:
+      tags:
+        - Payments
+      summary: Approve a payment
+      description: |
+        Marks the payment associated with the given order as APPROVED and
+        returns a transaction record. The optional `X-Correlation-ID` header
+        is echoed back in the response for distributed tracing.
+      operationId: approvePayment
+      parameters:
+        - $ref: '#/components/parameters/CorrelationIdHeader'
+        - $ref: '#/components/parameters/SourceServiceHeader'
+        - $ref: '#/components/parameters/OrderIdHeader'
+      requestBody:
+        required: true
+        description: Payment request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequest'
+            examples:
+              approveRequest:
+                summary: Approve a payment for an order
+                value:
+                  orderId: ord-1
+                  amount: 29.99
+      responses:
+        '200':
+          description: Payment approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+              examples:
+                approved:
+                  summary: Approved payment response
+                  value:
+                    orderId: ord-1
+                    status: APPROVED
+                    transactionId: txn-ord-1
+                    processedAt: '2026-05-13T12:00:00Z'
+                    correlationId: corr-ord-1-1715600000000000000
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+
+  /payment/declined:
+    post:
+      tags:
+        - Payments
+      summary: Decline a payment
+      description: |
+        Marks the payment associated with the given order as DECLINED and
+        returns a transaction record.
+      operationId: declinePayment
+      parameters:
+        - $ref: '#/components/parameters/CorrelationIdHeader'
+        - $ref: '#/components/parameters/SourceServiceHeader'
+        - $ref: '#/components/parameters/OrderIdHeader'
+      requestBody:
+        required: true
+        description: Payment request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequest'
+            examples:
+              declineRequest:
+                summary: Decline a payment for an order
+                value:
+                  orderId: ord-2
+                  amount: 49.99
+      responses:
+        '200':
+          description: Payment declined
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+              examples:
+                declined:
+                  summary: Declined payment response
+                  value:
+                    orderId: ord-2
+                    status: DECLINED
+                    transactionId: txn-ord-2
+                    processedAt: '2026-05-13T12:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+
+components:
+  parameters:
+    CorrelationIdHeader:
+      name: X-Correlation-ID
+      in: header
+      required: false
+      description: Correlation ID propagated by the caller for distributed tracing.
+      schema:
+        type: string
+      example: corr-ord-1-1715600000000000000
+    SourceServiceHeader:
+      name: X-Source-Service
+      in: header
+      required: false
+      description: Name of the calling service. Logged on the server side.
+      schema:
+        type: string
+      example: ordering-service
+    OrderIdHeader:
+      name: X-Order-ID
+      in: header
+      required: false
+      description: ID of the order associated with the payment.
+      schema:
+        type: string
+      example: ord-1
+
+  responses:
+    BadRequest:
+      description: Invalid request body
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            invalidBody:
+              summary: Invalid JSON body
+              value:
+                message: Invalid request body
+                code: 400
+    MethodNotAllowed:
+      description: HTTP method not allowed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            methodNotAllowed:
+              summary: Method not allowed
+              value:
+                message: Method not allowed
+                code: 405
+
+  schemas:
+    PaymentRequest:
+      type: object
+      description: Payment request payload received from the caller.
+      required:
+        - orderId
+        - amount
+      properties:
+        orderId:
+          type: string
+          description: ID of the order being paid for.
+          example: ord-1
+        amount:
+          type: number
+          format: double
+          description: Amount to charge.
+          minimum: 0.01
+          example: 29.99
+
+    PaymentResponse:
+      type: object
+      description: Result of processing a payment request.
+      required:
+        - orderId
+        - status
+        - transactionId
+        - processedAt
+      properties:
+        orderId:
+          type: string
+          description: ID of the order.
+          example: ord-1
+        status:
+          type: string
+          description: Final status of the payment.
+          enum:
+            - APPROVED
+            - DECLINED
+          example: APPROVED
+        transactionId:
+          type: string
+          description: Identifier for the recorded transaction.
+          example: txn-ord-1
+        processedAt:
+          type: string
+          format: date-time
+          description: Server-side timestamp when the payment was processed (UTC, RFC3339).
+          example: '2026-05-13T12:00:00Z'
+        correlationId:
+          type: string
+          description: Correlation ID echoed back from the request header, if provided.
+          example: corr-ord-1-1715600000000000000
+
+    ErrorResponse:
+      type: object
+      description: Standard error response format
+      required:
+        - message
+        - code
+      properties:
+        message:
+          type: string
+          description: Human-readable error message
+          example: Invalid request body
+        code:
+          type: integer
+          description: HTTP status code
+          example: 400
