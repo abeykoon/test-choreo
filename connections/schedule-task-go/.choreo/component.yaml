@@ -1,0 +1,6 @@
+schemaVersion: 1.2
+
+dependencies:
+    connectionReferences:
+    - name: tester-to-org
+      resourceRef: service:/hasitha/greeting-service-go/v1/803f0/PUBLIC
