@@ -1,15 +1,15 @@
 schemaVersion: 1.2
 
-endpoints:
-  - name: tester
-    displayName: Tester Service
-    service:
-      basePath: /
-      port: 8080
-    type: REST
-    networkVisibilities:
-      - Public
-    schemaFilePath: openapi.yaml
+# endpoints:
+#   - name: tester
+#     displayName: Tester Service
+#     service:
+#       basePath: /
+#       port: 8080
+#     type: REST
+#     networkVisibilities:
+#       - Public
+#     schemaFilePath: openapi.yaml
 
 # dependencies:
 #     connectionReferences:
