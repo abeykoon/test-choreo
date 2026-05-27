@@ -8,9 +8,7 @@ import (
 var logger = log.New(os.Stdout, "", 0)
 
 var connections = []string{
-	"CHOREO_TESTER_TO_ORG",
-	"CHOREO_TESTER_TO_PUBLIC",
-	"CHOREO_TESTER_TO_PROJECT",
+	"CHOREO_PAYMENT_SVC_PROJ_CONNECTION",
 }
 
 var suffixes = []string{
