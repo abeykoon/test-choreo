@@ -31,4 +31,4 @@ endpoints:
 dependencies:
     connectionReferences:
     - name: payment-svc-proj-connection
-      resourceRef: service:/connection-test-callee/payment-service/v1/5832a/PUBLIC
+      resourceRef: service:/connection-test-callee/payment-service/v1/5832a/PROJECT
