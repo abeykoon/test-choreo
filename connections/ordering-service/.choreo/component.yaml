@@ -30,5 +30,5 @@ endpoints:
 
 dependencies:
     connectionReferences:
-    - name: additional connection
-      resourceRef: service:/connection-test-caller/ordering-service/v1/bef3a/PUBLIC
+    - name: payment-svc-proj-connection
+      resourceRef: service:/connection-test-callee/payment-service/v1/5832a/PUBLIC
