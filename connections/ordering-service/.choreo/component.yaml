@@ -30,5 +30,5 @@ endpoints:
 
 dependencies:
     connectionReferences:
-    - name: payment-svc-connection
+    - name: new-component-connection
       resourceRef: service:/connection-test/payment-service/v1/5832a/PUBLIC
