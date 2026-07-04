@@ -1,0 +1,87 @@
+openapi: 3.0.3
+info:
+  title: Log Service API
+  description: |
+    A simple Go service that logs incoming payloads and headers. It exposes
+    GET and POST resources under the `/test` context path.
+  version: 1.0.0
+servers:
+  - url: http://localhost:9090
+    description: Local development server
+
+paths:
+  /test/greeting:
+    get:
+      summary: Get a static greeting
+      description: Returns a static `Hello World` string. All request headers are logged.
+      operationId: getGreeting
+      responses:
+        '200':
+          description: A static greeting
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Hello World
+        '405':
+          description: Method not allowed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      summary: Echo the incoming JSON payload
+      description: |
+        Accepts an arbitrary JSON payload and echoes it back in the response.
+        All request headers and the incoming payload are logged on the server.
+      operationId: echoGreeting
+      requestBody:
+        required: true
+        description: Arbitrary JSON object to be echoed back.
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              example:
+                message: Hello
+                from: client
+      responses:
+        '200':
+          description: The echoed JSON payload
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                example:
+                  message: Hello
+                  from: client
+        '400':
+          description: Invalid JSON payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '405':
+          description: Method not allowed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Human-readable error message
+        code:
+          type: integer
+          format: int32
+          description: HTTP status code
+      required:
+        - message
+        - code
