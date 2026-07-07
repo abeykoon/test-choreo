@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -48,6 +49,8 @@ func main() {
 func invokerHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
+	logRequest(r)
+
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
@@ -60,6 +63,13 @@ func invokerHandler(w http.ResponseWriter, r *http.Request) {
 	choreoCorrelationID := r.Header.Get("X-Choreo-Correlation-Id")
 	if choreoCorrelationID == "" {
 		choreoCorrelationID = correlationID
+	}
+	requestID := r.Header.Get("X-Request-Id")
+
+	w.Header().Set("X-Correlation-Id", correlationID)
+	w.Header().Set("X-Choreo-Correlation-Id", choreoCorrelationID)
+	if requestID != "" {
+		w.Header().Set("X-Request-Id", requestID)
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
@@ -81,6 +91,31 @@ func invokerHandler(w http.ResponseWriter, r *http.Request) {
 		UpstreamStatus: upstreamStatus,
 		Response:       respBody,
 	})
+}
+
+func logRequest(r *http.Request) {
+	log.Printf("incoming request: %s %s", r.Method, r.URL.Path)
+	for name, values := range r.Header {
+		for _, v := range values {
+			log.Printf("  header: %s: %s", name, v)
+		}
+	}
+
+	if r.Body == nil {
+		log.Printf("  body: <nil>")
+		return
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("  body: <read error: %v>", err)
+		return
+	}
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	if len(body) == 0 {
+		log.Printf("  body: <empty>")
+		return
+	}
+	log.Printf("  body: %s", string(body))
 }
 
 func callLogService(ctx context.Context, correlationID, choreoCorrelationID string) (int, json.RawMessage, error) {
