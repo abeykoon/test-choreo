@@ -49,6 +49,7 @@ func main() {
 func invokerHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
+	//log request details for debugging
 	logRequest(r)
 
 	if r.Method != http.MethodPost {
