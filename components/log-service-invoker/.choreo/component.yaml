@@ -29,6 +29,6 @@ endpoints:
     schemaFilePath: openapi.yaml
 
 dependencies:
-  connectionReferences:
+    connectionReferences:
     - name: log-svc-connection
-      resourceRef: service:/default/log-service/v1/PROJECT
+      resourceRef: service:/default/log-service/v1/803f0/PROJECT

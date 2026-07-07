@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,15 +9,12 @@ import (
 	"net/http"
 	"os"
 	"time"
-
-	"golang.org/x/oauth2/clientcredentials"
 )
 
 type InvokeResponse struct {
 	Status         int             `json:"status"`
 	CorrelationID  string          `json:"correlationId"`
 	UpstreamStatus int             `json:"upstreamStatus"`
-	Payload        json.RawMessage `json:"payload"`
 	Response       json.RawMessage `json:"response"`
 }
 
@@ -27,36 +23,25 @@ type ErrorResponse struct {
 	Code    int    `json:"code"`
 }
 
-var (
-	consumerKey    = os.Getenv("CHOREO_LOG_SVC_CONNECTION_CONSUMERKEY")
-	consumerSecret = os.Getenv("CHOREO_LOG_SVC_CONNECTION_CONSUMERSECRET")
-	serviceURL     = os.Getenv("CHOREO_LOG_SVC_CONNECTION_SERVICEURL")
-	tokenURL       = os.Getenv("CHOREO_LOG_SVC_CONNECTION_TOKENURL")
-	choreoAPIKey   = os.Getenv("CHOREO_LOG_SVC_CONNECTION_APIKEY")
+const resourcePath = "/test/greeting"
 
-	logClient *http.Client
+var (
+	serviceURL   = os.Getenv("CHOREO_LOG_SVC_CONNECTION_SERVICEURL")
+	choreoAPIKey = os.Getenv("CHOREO_LOG_SVC_CONNECTION_CHOREOAPIKEY")
+
+	logClient = &http.Client{Timeout: 10 * time.Second}
 )
 
 func main() {
-	if consumerKey == "" || consumerSecret == "" || serviceURL == "" || tokenURL == "" {
-		log.Println("WARNING: missing required env vars: CHOREO_LOG_SVC_CONNECTION_{CONSUMERKEY,CONSUMERSECRET,SERVICEURL,TOKENURL}; log service invocations will fail until these are set")
-	} else {
-		cfg := clientcredentials.Config{
-			ClientID:     consumerKey,
-			ClientSecret: consumerSecret,
-			TokenURL:     tokenURL,
-		}
-		logClient = cfg.Client(context.Background())
+	if serviceURL == "" || choreoAPIKey == "" {
+		log.Println("WARNING: missing required env vars: CHOREO_LOG_SVC_CONNECTION_{SERVICEURL,CHOREOAPIKEY}; log service invocations will fail until these are set")
 	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/invoker", invokerHandler)
 
 	log.Println("Log Service Invoker starting on port 9090...")
-	log.Println("Context path: /invoker")
-	log.Println("Endpoints: POST /invoker")
 	log.Printf("Log service URL: %s", serviceURL)
-	log.Printf("OAuth2 token URL: %s", tokenURL)
 	log.Fatal(http.ListenAndServe(":9090", mux))
 }
 
@@ -68,25 +53,19 @@ func invokerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "Failed to read request body")
-		return
+	correlationID := r.Header.Get("X-Correlation-ID")
+	if correlationID == "" {
+		correlationID = fmt.Sprintf("corr-invoker-%d", time.Now().UnixNano())
 	}
-	defer r.Body.Close()
-
-	var payload map[string]interface{}
-	if err := json.Unmarshal(body, &payload); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid JSON payload")
-		return
+	choreoCorrelationID := r.Header.Get("X-Choreo-Correlation-Id")
+	if choreoCorrelationID == "" {
+		choreoCorrelationID = correlationID
 	}
-
-	correlationID := fmt.Sprintf("corr-invoker-%d", time.Now().UnixNano())
 
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
-	upstreamStatus, respBody, err := callLogService(ctx, body, correlationID)
+	upstreamStatus, respBody, err := callLogService(ctx, correlationID, choreoCorrelationID)
 	if err != nil {
 		log.Printf("log service call failed: %v", err)
 		writeError(w, http.StatusBadGateway, "log service call failed: "+err.Error())
@@ -100,27 +79,24 @@ func invokerHandler(w http.ResponseWriter, r *http.Request) {
 		Status:         http.StatusOK,
 		CorrelationID:  correlationID,
 		UpstreamStatus: upstreamStatus,
-		Payload:        body,
 		Response:       respBody,
 	})
 }
 
-func callLogService(ctx context.Context, payload []byte, correlationID string) (int, json.RawMessage, error) {
-	if logClient == nil || serviceURL == "" {
+func callLogService(ctx context.Context, correlationID, choreoCorrelationID string) (int, json.RawMessage, error) {
+	if serviceURL == "" || choreoAPIKey == "" {
 		return 0, nil, fmt.Errorf("log service connection not configured")
 	}
-	url := fmt.Sprintf("%s/greeting", serviceURL)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
+	url := serviceURL + resourcePath
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return 0, nil, err
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Choreo-API-Key", choreoAPIKey)
 	req.Header.Set("X-Correlation-ID", correlationID)
-	req.Header.Set("X-Source-Service", "log-service-invoker")
-	if choreoAPIKey != "" {
-		req.Header.Set("Choreo-API-Key", choreoAPIKey)
-	}
+	req.Header.Set("X-Choreo-Correlation-Id", choreoCorrelationID)
 
 	resp, err := logClient.Do(req)
 	if err != nil {
