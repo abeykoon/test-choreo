@@ -1,0 +1,106 @@
+openapi: 3.0.3
+info:
+  title: Log Service Invoker API
+  description: |
+    A Go service that accepts an arbitrary JSON payload and forwards it to the
+    downstream log-service (`POST /test/greeting`) via the Choreo API Manager
+    using OAuth2 client credentials and an optional Choreo-API-Key. The
+    downstream response is returned to the caller.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:9090
+    description: Local development server
+
+tags:
+  - name: Invoker
+    description: Log service invocation operations
+
+paths:
+  /invoker:
+    post:
+      tags:
+        - Invoker
+      summary: Invoke the log service
+      description: |
+        Forwards the given JSON payload to the downstream log service and
+        returns the combined invocation result.
+      operationId: invokeLogService
+      requestBody:
+        required: true
+        description: Arbitrary JSON object forwarded to the log service.
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              example:
+                message: Hello
+                from: invoker
+      responses:
+        '200':
+          description: Log service invoked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvokeResponse'
+        '400':
+          description: Invalid JSON payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '405':
+          description: HTTP method not allowed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Downstream log service call failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    InvokeResponse:
+      type: object
+      required:
+        - status
+        - correlationId
+        - upstreamStatus
+        - payload
+        - response
+      properties:
+        status:
+          type: integer
+          example: 200
+        correlationId:
+          type: string
+          example: corr-invoker-1720000000000000000
+        upstreamStatus:
+          type: integer
+          example: 200
+        payload:
+          type: object
+          additionalProperties: true
+          description: The original JSON payload sent to the log service.
+        response:
+          type: object
+          additionalProperties: true
+          description: The JSON response returned by the log service.
+
+    ErrorResponse:
+      type: object
+      required:
+        - message
+        - code
+      properties:
+        message:
+          type: string
+          example: Invalid JSON payload
+        code:
+          type: integer
+          example: 400
