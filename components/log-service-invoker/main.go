@@ -28,15 +28,15 @@ type ErrorResponse struct {
 const resourcePath = "/test/greeting"
 
 var (
-	serviceURL   = os.Getenv("CHOREO_LOG_SVC_CONNECTION_SERVICEURL")
-	choreoAPIKey = os.Getenv("CHOREO_LOG_SVC_CONNECTION_CHOREOAPIKEY")
+	serviceURL   = os.Getenv("CHOREO_LOG_SERVICE_CONNECTION_ORG_LEVEL_SERVICEURL")
+	choreoAPIKey = os.Getenv("CHOREO_LOG_SERVICE_CONNECTION_ORG_LEVEL_CHOREOAPIKEY")
 
 	logClient = &http.Client{Timeout: 10 * time.Second}
 )
 
 func main() {
 	if serviceURL == "" || choreoAPIKey == "" {
-		log.Println("WARNING: missing required env vars: CHOREO_LOG_SVC_CONNECTION_{SERVICEURL,CHOREOAPIKEY}; log service invocations will fail until these are set")
+		log.Println("WARNING: missing required env vars: CHOREO_LOG_SERVICE_CONNECTION_ORG_LEVEL_{SERVICEURL,CHOREOAPIKEY}; log service invocations will fail until these are set")
 	}
 
 	mux := http.NewServeMux()
