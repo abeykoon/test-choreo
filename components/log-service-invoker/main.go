@@ -13,10 +13,11 @@ import (
 )
 
 type InvokeResponse struct {
-	Status         int             `json:"status"`
-	CorrelationID  string          `json:"correlationId"`
-	UpstreamStatus int             `json:"upstreamStatus"`
-	Response       json.RawMessage `json:"response"`
+	Status              int             `json:"status"`
+	CorrelationID       string          `json:"correlationId"`
+	ChoreoCorrelationID string          `json:"choreoCorrelationId"`
+	UpstreamStatus      int             `json:"upstreamStatus"`
+	Response            json.RawMessage `json:"response"`
 }
 
 type ErrorResponse struct {
@@ -83,14 +84,15 @@ func invokerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("log service invoked: correlationId=%s upstreamStatus=%d", correlationID, upstreamStatus)
+	log.Printf("log service invoked: correlationId=%s choreoCorrelationId=%s upstreamStatus=%d", correlationID, choreoCorrelationID, upstreamStatus)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(InvokeResponse{
-		Status:         http.StatusOK,
-		CorrelationID:  correlationID,
-		UpstreamStatus: upstreamStatus,
-		Response:       respBody,
+		Status:              http.StatusOK,
+		CorrelationID:       correlationID,
+		ChoreoCorrelationID: choreoCorrelationID,
+		UpstreamStatus:      upstreamStatus,
+		Response:            respBody,
 	})
 }
 
