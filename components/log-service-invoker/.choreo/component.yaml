@@ -30,5 +30,5 @@ endpoints:
 
 dependencies:
     connectionReferences:
-    - name: log-svc-connection
-      resourceRef: service:/default/log-service/v1/803f0/PROJECT
+    - name: log-service-connection-org-level
+      resourceRef: service:/default/log-service/v1/803f0/ORGANIZATION
