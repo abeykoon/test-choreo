@@ -1,7 +1,7 @@
 # Log Service
 
 A simple Go service that logs incoming request headers and payloads. It exposes GET and POST resources under the `/test` context path.
-Test2
+Test3
 
 ## Project Structure
 
