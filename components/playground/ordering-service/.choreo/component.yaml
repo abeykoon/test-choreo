@@ -30,5 +30,5 @@ endpoints:
 
 dependencies:
     connectionReferences:
-    - name: first-payment-conn
+    - name: second-payment-conn
       resourceRef: service:/hasitha/payment-service/v1/6c05f/ORGANIZATION

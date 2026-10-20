@@ -41,12 +41,20 @@ type ErrorResponse struct {
 	Code    int    `json:"code"`
 }
 
+// Env var prefixes of the payment connections this service may be injected with,
+// in order of preference.
+var connectionPrefixes = []string{
+	"CHOREO_FIRST_PAYMENT_CONN",
+	"CHOREO_SECOND_PAYMENT_CONN",
+}
+
 var (
-	consumerKey    = os.Getenv("CHOREO_FIRST_PAYMENT_CONN_CONSUMERKEY")
-	consumerSecret = os.Getenv("CHOREO_FIRST_PAYMENT_CONN_CONSUMERSECRET")
-	serviceURL     = os.Getenv("CHOREO_FIRST_PAYMENT_CONN_SERVICEURL")
-	tokenURL       = os.Getenv("CHOREO_FIRST_PAYMENT_CONN_TOKENURL")
-	choreoAPIKey   = os.Getenv("CHOREO_FIRST_PAYMENT_CONN_CHOREOAPIKEY")
+	connectionPrefix string
+	consumerKey      string
+	consumerSecret   string
+	serviceURL       string
+	tokenURL         string
+	choreoAPIKey     string
 
 	paymentClient *http.Client
 
@@ -54,9 +62,40 @@ var (
 	orderSeq = 0
 )
 
+// resolveConnection picks the first connection prefix that has any env var
+// injected and loads its values, logging which connection is referred.
+func resolveConnection() {
+	var found []string
+	for _, p := range connectionPrefixes {
+		if os.Getenv(p+"_SERVICEURL") != "" || os.Getenv(p+"_CONSUMERKEY") != "" {
+			found = append(found, p)
+		}
+	}
+
+	switch len(found) {
+	case 0:
+		connectionPrefix = connectionPrefixes[0]
+		log.Printf("Payment connection: none found (looked for %v); defaulting to %s", connectionPrefixes, connectionPrefix)
+	case 1:
+		connectionPrefix = found[0]
+		log.Printf("Payment connection: using %s", connectionPrefix)
+	default:
+		connectionPrefix = found[0]
+		log.Printf("Payment connection: multiple found %v; using %s", found, connectionPrefix)
+	}
+
+	consumerKey = os.Getenv(connectionPrefix + "_CONSUMERKEY")
+	consumerSecret = os.Getenv(connectionPrefix + "_CONSUMERSECRET")
+	serviceURL = os.Getenv(connectionPrefix + "_SERVICEURL")
+	tokenURL = os.Getenv(connectionPrefix + "_TOKENURL")
+	choreoAPIKey = os.Getenv(connectionPrefix + "_CHOREOAPIKEY")
+}
+
 func main() {
+	resolveConnection()
+
 	if consumerKey == "" || consumerSecret == "" || serviceURL == "" || tokenURL == "" {
-		log.Println("WARNING: missing required env vars: CHOREO_FIRST_PAYMENT_CONN_{CONSUMERKEY,CONSUMERSECRET,SERVICEURL,TOKENURL}; payment service invocations will fail until these are set")
+		log.Printf("WARNING: missing required env vars: %s_{CONSUMERKEY,CONSUMERSECRET,SERVICEURL,TOKENURL}; payment service invocations will fail until these are set", connectionPrefix)
 	} else {
 		cfg := clientcredentials.Config{
 			ClientID:     consumerKey,
