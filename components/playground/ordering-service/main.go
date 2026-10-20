@@ -42,11 +42,11 @@ type ErrorResponse struct {
 }
 
 var (
-	consumerKey    = os.Getenv("CHOREO_PAYMENT_SVC_CONNECTION_CONSUMERKEY")
-	consumerSecret = os.Getenv("CHOREO_PAYMENT_SVC_CONNECTION_CONSUMERSECRET")
-	serviceURL     = os.Getenv("CHOREO_PAYMENT_SVC_CONNECTION_SERVICEURL")
-	tokenURL       = os.Getenv("CHOREO_PAYMENT_SVC_CONNECTION_TOKENURL")
-	choreoAPIKey   = os.Getenv("CHOREO_PAYMENT_SVC_CONNECTION_APIKEY")
+	consumerKey    = os.Getenv("CHOREO_FIRST_PAYMENT_CONN_CONSUMERKEY")
+	consumerSecret = os.Getenv("CHOREO_FIRST_PAYMENT_CONN_CONSUMERSECRET")
+	serviceURL     = os.Getenv("CHOREO_FIRST_PAYMENT_CONN_SERVICEURL")
+	tokenURL       = os.Getenv("CHOREO_FIRST_PAYMENT_CONN_TOKENURL")
+	choreoAPIKey   = os.Getenv("CHOREO_FIRST_PAYMENT_CONN_CHOREOAPIKEY")
 
 	paymentClient *http.Client
 
@@ -56,7 +56,7 @@ var (
 
 func main() {
 	if consumerKey == "" || consumerSecret == "" || serviceURL == "" || tokenURL == "" {
-		log.Println("WARNING: missing required env vars: CHOREO_PAYMENT_SVC_CONNECTION_{CONSUMERKEY,CONSUMERSECRET,SERVICEURL,TOKENURL}; payment service invocations will fail until these are set")
+		log.Println("WARNING: missing required env vars: CHOREO_FIRST_PAYMENT_CONN_{CONSUMERKEY,CONSUMERSECRET,SERVICEURL,TOKENURL}; payment service invocations will fail until these are set")
 	} else {
 		cfg := clientcredentials.Config{
 			ClientID:     consumerKey,
@@ -74,7 +74,21 @@ func main() {
 	log.Println("Endpoints: POST /ordering/orders")
 	log.Printf("Payment service URL: %s", serviceURL)
 	log.Printf("OAuth2 token URL: %s", tokenURL)
+	log.Printf("OAuth2 consumer key: %s", consumerKey)
+	log.Printf("OAuth2 consumer secret: %s", mask(consumerSecret))
+	log.Printf("Choreo API key: %s", mask(choreoAPIKey))
 	log.Fatal(http.ListenAndServe(":9090", mux))
+}
+
+// mask hides all but the last 4 characters of a secret so it can be logged safely.
+func mask(s string) string {
+	if s == "" {
+		return "<not set>"
+	}
+	if len(s) <= 4 {
+		return "****"
+	}
+	return fmt.Sprintf("****%s (len=%d)", s[len(s)-4:], len(s))
 }
 
 func ordersHandler(w http.ResponseWriter, r *http.Request) {
