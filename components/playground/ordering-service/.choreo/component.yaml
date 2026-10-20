@@ -31,4 +31,4 @@ endpoints:
 dependencies:
     connectionReferences:
     - name: first-payment-conn
-      resourceRef: service:/hasitha/payment-service/v1/5832a/ORGANIZATION
+      resourceRef: service:/hasitha/payment-service/v1/6c05f/ORGANIZATION
