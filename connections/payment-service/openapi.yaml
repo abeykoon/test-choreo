@@ -8,7 +8,7 @@ info:
   version: 1.0.0
 
 servers:
-  - url: http://localhost:9091
+  - url: http://localhost:9091/payment
     description: Local development server
 
 tags:
@@ -16,7 +16,7 @@ tags:
     description: Payment processing operations
 
 paths:
-  /payment/approved:
+  /approved:
     post:
       tags:
         - Payments
@@ -64,7 +64,7 @@ paths:
         '405':
           $ref: '#/components/responses/MethodNotAllowed'
 
-  /payment/declined:
+  /declined:
     post:
       tags:
         - Payments
