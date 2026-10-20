@@ -101,7 +101,7 @@ func ordersHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
-	payment, err := callPayment(ctx, "approved", order, correlationID)
+	payment, err := callPayment(ctx, "payment/approved", order, correlationID)
 	if err != nil {
 		log.Printf("payment call failed: %v", err)
 		writeError(w, http.StatusBadGateway, "payment service call failed: "+err.Error())

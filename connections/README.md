@@ -186,8 +186,8 @@ nothing has to be hard-coded.
    req.Header.Set("Choreo-API-Key", choreoAPIKey)
    ```
 
-The target URL is `${CHOREO_PAYMENT_SVC_CONNECTION_SERVICEURL}/approved`
-(the connection's service URL is already the `/payment` base path).
+The target URL is `${CHOREO_PAYMENT_SVC_CONNECTION_SERVICEURL}/payment/approved`
+(the connection's service URL is the API's base URL; `/payment/approved` is the resource path).
 
 ---
 
