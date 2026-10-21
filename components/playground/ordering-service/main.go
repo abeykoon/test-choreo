@@ -9,6 +9,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -91,7 +93,30 @@ func resolveConnection() {
 	choreoAPIKey = os.Getenv(connectionPrefix + "_CHOREOAPIKEY")
 }
 
+// logEnvCheck prints the env vars used to verify whether the custom env var
+// mapping (configurations.env in component.yaml) was applied on deploy.
+func logEnvCheck() {
+	for _, name := range []string{"CHOREO_FIRST_PAYMENT_CONN_SERVICEURL", "MY_CONN_SERVICEURL"} {
+		if v, ok := os.LookupEnv(name); ok {
+			log.Printf("Env check: %s=%s", name, v)
+		} else {
+			log.Printf("Env check: %s=<not set>", name)
+		}
+	}
+
+	var names []string
+	for _, kv := range os.Environ() {
+		name, _, _ := strings.Cut(kv, "=")
+		if strings.HasPrefix(name, "CHOREO_") || strings.HasPrefix(name, "MY_CONN_") {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	log.Printf("Env check: connection-related env var names: %v", names)
+}
+
 func main() {
+	logEnvCheck()
 	resolveConnection()
 
 	if consumerKey == "" || consumerSecret == "" || serviceURL == "" || tokenURL == "" {
