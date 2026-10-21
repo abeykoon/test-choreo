@@ -34,7 +34,7 @@ dependencies:
       resourceRef: service:/hasitha/payment-service/v1/6c05f/ORGANIZATION
 
 # +optional Configurations injected into the component at deploy time.
-configurations:
+configuration:
   env:
     - name: MY_CONN_SERVICEURL
       valueFrom:
