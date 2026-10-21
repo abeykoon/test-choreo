@@ -32,3 +32,12 @@ dependencies:
     connectionReferences:
     - name: first-payment-conn
       resourceRef: service:/hasitha/payment-service/v1/6c05f/ORGANIZATION
+
+# +optional Configurations injected into the component at deploy time.
+configurations:
+  env:
+    - name: MY_CONN_SERVICEURL
+      valueFrom:
+        connectionRef:
+          name: first-payment-conn
+          key: ServiceURL
