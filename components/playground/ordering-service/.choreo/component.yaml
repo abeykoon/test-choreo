@@ -33,11 +33,11 @@ dependencies:
     - name: first-payment-conn
       resourceRef: service:/connections/payment-service/v1/5832a/ORGANIZATION
 
-# # +optional Configurations injected into the component at deploy time.
-# configuration:
-#   env:
-#     - name: MY_CONN_SERVICEURL
-#       valueFrom:
-#         connectionRef:
-#           name: first-payment-conn
-#           key: ServiceURL
+# +optional Configurations injected into the component at deploy time.
+configuration:
+  env:
+    - name: MY_CONN_SERVICEURL
+      valueFrom:
+        connectionRef:
+          name: first-payment-conn
+          key: ServiceURL
