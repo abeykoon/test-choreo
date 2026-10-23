@@ -6,13 +6,12 @@ import ballerina/os;
 // env names; MY_ covers names renamed through component.yaml configuration.env.
 final string[] & readonly envPrefixes = ["CHOREO_", "MY_"];
 
-// Schema-based configurables. Both are required, so their values must come from the
+// Schema-based configurable. It is required, so its value must come from the
 // Config.toml that Choreo generates from the values entered in the console.
 configurable string greeting = ?;
-configurable string farewell = ?;
 
 function init() {
-    log:printInfo("Startup configurables", greeting = greeting, farewell = farewell);
+    log:printInfo("Startup configurables", greeting = greeting);
     map<string> envs = matchingEnvs();
     if envs.length() == 0 {
         log:printWarn("No env variables found with the given prefixes", prefixes = envPrefixes);
@@ -34,8 +33,8 @@ function matchingEnvs() returns map<string> {
 
 service / on new http:Listener(9090) {
 
-    // Returns the configurable values and the matching env variables at request time.
+    // Returns the configurable value and the matching env variables at request time.
     resource function get env() returns json {
-        return {greeting, farewell, envs: matchingEnvs()};
+        return {greeting, envs: matchingEnvs()};
     }
 }
